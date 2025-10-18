@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:tiled/controllers/folder_controller.dart';
+import 'package:tiled/app/folders/controller/folder_controller.dart';
 
 void showCreateSubFolderDialog(BuildContext context, String parentId) {
   final TextEditingController name = TextEditingController();

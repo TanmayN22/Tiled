@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:tiled/controllers/folder_controller.dart';
+import 'package:tiled/app/folders/controller/folder_controller.dart';
 import 'package:tiled/controllers/nav_controller.dart';
 import 'package:tiled/models/folder_model.dart';
 import 'package:tiled/models/media_item.dart';
-import 'package:tiled/pages/home_screen.dart';
+import 'package:tiled/app/home/view/home_screen.dart';
 import 'package:tiled/routes/app_pages.dart';
 import 'package:tiled/routes/app_routes.dart';
 

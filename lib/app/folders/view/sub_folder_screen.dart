@@ -1,9 +1,9 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:tiled/widgets/subFolder_dialogBox.dart';
+import 'package:tiled/app/folders/controller/folder_controller.dart';
+import 'package:tiled/app/folders/widgets/subFolder_dialogBox.dart';
 import 'package:wechat_assets_picker/wechat_assets_picker.dart';
-import 'package:tiled/controllers/folder_controller.dart';
 import 'package:tiled/models/folder_model.dart';
 import 'package:tiled/models/media_item.dart';
 
