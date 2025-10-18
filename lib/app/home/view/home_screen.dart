@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:photo_manager/photo_manager.dart';
-import 'package:tiled/controllers/nav_controller.dart';
 import 'package:tiled/app/folders/view/root_folder_tab.dart';
-import 'package:tiled/app/search/view/search_screen.dart';
-import 'package:tiled/app/home/widgets/build_gallery_view.dart';
-import 'package:tiled/widgets/nav_bar.dart';
 import 'package:tiled/app/folders/widgets/root_folder_creation_dailog.dart';
+import 'package:tiled/app/home/widgets/build_gallery_view.dart';
+import 'package:tiled/app/search/view/search_screen.dart';
+import 'package:tiled/controllers/nav_controller.dart';
+import 'package:tiled/widgets/nav_bar.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -16,40 +16,61 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  // A list to hold the gallery images. Using AssetEntity is much more memory-efficient
-  // than using File, as it holds metadata and allows for loading thumbnails.
-  List<AssetEntity> imageAssets = [];
+  // Flat list of all loaded assets
+  List<AssetEntity> allAssets = [];
+  // ✨ NEW: Maps to hold assets grouped by day and month.
+  Map<DateTime, List<AssetEntity>> groupedByDay = {};
+  Map<DateTime, List<AssetEntity>> groupedByMonth = {};
+
   final NavController navController = Get.find();
-  // A boolean flag to prevent multiple simultaneous loading operations.
   bool isLoading = false;
-  // A flag to know if there are more images to load from the gallery.
   bool hasMoreImages = true;
-  // Keeps track of the current page of images to load for pagination.
   int currentPage = 0;
-  // Defines how many images to load in each batch (or "page").
-  // This value is a trade-off between smooth scrolling and initial load time.
   final int pageSize = 150;
 
   @override
   void initState() {
     super.initState();
-    // When the widget is first created, initiate the process of loading images.
     _loadGalleryImages();
   }
 
-  /// Fetches a paginated list of images from the device's gallery.
-  /// The [loadMore] parameter determines whether to append the new images
-  /// to the existing list (for infinite scrolling) or to replace the list.
-  Future<void> _loadGalleryImages({bool loadMore = false}) async {
-    // If a loading operation is already in progress, do nothing.
-    if (isLoading) return;
+  /// ✨ NEW: Groups assets into two separate maps: one for days, one for months.
+  void _groupAssets() {
+    final dayMap = <DateTime, List<AssetEntity>>{};
+    final monthMap = <DateTime, List<AssetEntity>>{};
 
-    // Set the state to 'loading' to show a progress indicator in the UI.
+    for (final asset in allAssets) {
+      // Group by day (normalized to midnight)
+      final dayDate = DateTime(
+        asset.createDateTime.year,
+        asset.createDateTime.month,
+        asset.createDateTime.day,
+      );
+      if (dayMap[dayDate] == null) dayMap[dayDate] = [];
+      dayMap[dayDate]!.add(asset);
+
+      // Group by month (normalized to the 1st of the month)
+      final monthDate = DateTime(
+        asset.createDateTime.year,
+        asset.createDateTime.month,
+        1,
+      );
+      if (monthMap[monthDate] == null) monthMap[monthDate] = [];
+      monthMap[monthDate]!.add(asset);
+    }
+    setState(() {
+      groupedByDay = dayMap;
+      groupedByMonth = monthMap;
+    });
+  }
+
+  Future<void> _loadGalleryImages({bool loadMore = false}) async {
+    if (isLoading) return;
     setState(() {
       isLoading = true;
     });
 
-    // Request permission to access the photo gallery.
+    // ... (Permission checks and album fetching remain the same)
     final permitted = await PhotoManager.requestPermissionExtend();
     if (!permitted.isAuth) {
       Get.snackbar("Permission Denied", "Gallery access is required");
@@ -58,33 +79,22 @@ class _HomeScreenState extends State<HomeScreen> {
       });
       return;
     }
-
-    // Get a list of all photo albums on the device.
-    // `onlyAll: true` gets the "All Photos" or "Recents" album.
     final albums = await PhotoManager.getAssetPathList(
-      type: RequestType.image,
+      type: RequestType.all,
       onlyAll: true,
     );
-
-    // If there are no albums (e.g., no photos on the device), stop loading.
     if (albums.isEmpty) {
-        setState(() {
+      setState(() {
         isLoading = false;
         hasMoreImages = false;
       });
       return;
     }
-
-    // The first album is typically the "Recents" or "All Photos" album.
     final recentAlbum = albums.first;
-
-    // Fetch a "page" of assets (images) from the album.
     final assets = await recentAlbum.getAssetListPaged(
-      page: currentPage, // The page number to fetch.
-      size: pageSize,   // The number of items to fetch in this batch.
+      page: currentPage,
+      size: pageSize,
     );
-
-    // If the returned list of assets is empty, it means there are no more images to load.
     if (assets.isEmpty) {
       setState(() {
         hasMoreImages = false;
@@ -93,26 +103,21 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
-    // Update the UI with the newly loaded images.
     setState(() {
       if (loadMore) {
-        // If loading more, add the new assets to the existing list.
-        imageAssets.addAll(assets);
+        allAssets.addAll(assets);
       } else {
-        // Otherwise, this is the first load, so replace the list.
-        imageAssets = assets;
+        allAssets = assets;
       }
-      // Increment the page number for the next fetch.
       currentPage++;
-      // Set loading to false as the operation is complete.
       isLoading = false;
-      // If the number of assets fetched is less than the page size, we've reached the end.
       hasMoreImages = assets.length == pageSize;
     });
+
+    // ✨ After loading/updating assets, re-group them.
+    _groupAssets();
   }
 
-  /// A helper function to trigger loading the next page of images.
-  /// This is called by the `onLoadMore` callback in `BuildGalleryView`.
   Future<void> _loadMoreImages() async {
     if (hasMoreImages && !isLoading) {
       await _loadGalleryImages(loadMore: true);
@@ -121,30 +126,29 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // A list of the main pages/widgets to display based on the selected nav bar index.
     final List<Widget> pages = [
       BuildGalleryView(
-        imageAssets: imageAssets,
+        // Pass both grouped maps and the flat list to the view
+        groupedByDay: groupedByDay,
+        groupedByMonth: groupedByMonth,
+        allAssets: allAssets,
         onLoadMore: _loadMoreImages,
         isLoading: isLoading,
         hasMoreImages: hasMoreImages,
-      ), // Index 0: The main gallery grid.
-      RootFolderTab(), // Index 1: The screen showing user-created folders.
-      SearchPage(),    // Index 2: The search screen.
+      ),
+      RootFolderTab(),
+      SearchPage(),
     ];
 
-    // A list of titles for the AppBar, corresponding to the pages.
     final List<String> titles = ["Photos", "Tiled", "Search"];
 
-    // The Obx widget from GetX automatically rebuilds its child when the
-    // value of an observable variable (like selectedIndex) changes.
     return Obx(() {
       final currentIndex = navController.selectedIndex.value;
       return Scaffold(
-        resizeToAvoidBottomInset: false, // Prevents the UI from resizing when the keyboard appears.
+        // ... (rest of Scaffold is the same)
+        resizeToAvoidBottomInset: false,
         appBar: AppBar(
           title: Text(titles[currentIndex]),
-          // Conditionally show an "Add" button only on the "Tiled" (folders) screen.
           actions: [
             if (currentIndex == 1)
               IconButton(
@@ -154,12 +158,9 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
         body: SafeArea(
-          // Use a Stack to overlay the navigation bar on top of the page content.
           child: Stack(
             children: [
-              // Display the currently selected page.
               pages[currentIndex],
-              // Align the NavBar to the bottom center of the screen.
               Align(alignment: Alignment.bottomCenter, child: NavBar()),
             ],
           ),
