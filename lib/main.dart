@@ -8,6 +8,7 @@ import 'package:tiled/models/media_item.dart';
 import 'package:tiled/app/home/view/home_screen.dart';
 import 'package:tiled/routes/app_pages.dart';
 import 'package:tiled/routes/app_routes.dart';
+import 'package:tiled/app/home/controllers/gallery_controller.dart';
 
 void main() async {
   // ensures flutter binding is ready
@@ -24,6 +25,8 @@ void main() async {
 
   // Put your controller in GetX dependency injection
   Get.put(FolderController());
+  Get.put(GalleryController());
+  Get.put(NavController());
 
   // Run the app
   runApp(MyApp());

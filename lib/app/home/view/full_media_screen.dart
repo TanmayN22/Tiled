@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:tiled/app/home/widgets/media_viewer_view.dart'; // Assuming this is your MediaViewerPage
+import 'package:tiled/app/home/widgets/media_viewer/media_viewer_page.dart';
 import 'package:wechat_assets_picker/wechat_assets_picker.dart';
 
 class FullMediaScreen extends StatelessWidget {
