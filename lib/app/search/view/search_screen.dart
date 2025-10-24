@@ -1,44 +1,90 @@
-import 'package:flutter/material.dart';
+// lib/app/search/view/search_screen.dart
+
+import 'package:flutter/material.dart'
+    hide SearchController; // ✨ FIX: Add this hide statement
+import 'package:get/get.dart';
+import 'package:tiled/app/folders/view/sub_folder_screen.dart';
+import 'package:tiled/app/search/controller/search_controller.dart';
+import 'package:tiled/models/folder_model.dart';
 
 class SearchPage extends StatelessWidget {
-  SearchPage({super.key});
+  const SearchPage({super.key});
 
   @override
   Widget build(BuildContext context) {
+    // This will now correctly refer to YOUR SearchController
+    final SearchController searchController = Get.put(SearchController());
+
     return Column(
       children: [
-        Container(
-          margin: const EdgeInsets.all(16),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            color: Colors.grey.shade800,
-            borderRadius: BorderRadius.circular(25),
-          ),
-          child: const Row(
-            children: [
-              Icon(Icons.search, color: Colors.grey),
-              SizedBox(width: 12),
-              Text(
-                "Search photos and videos...",
-                style: TextStyle(color: Colors.grey),
+        // --- Search Bar UI ---
+        Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: TextField(
+            controller: searchController.textController,
+            autofocus: true,
+            decoration: InputDecoration(
+              hintText: "Search folders...",
+              prefixIcon: const Icon(Icons.search),
+              suffixIcon: IconButton(
+                icon: const Icon(Icons.clear),
+                onPressed: () => searchController.clearSearch(),
               ),
-            ],
-          ),
-        ),
-        const Expanded(
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.search, size: 64, color: Colors.grey),
-                SizedBox(height: 16),
-                Text(
-                  "Search functionality coming soon",
-                  style: TextStyle(color: Colors.grey),
-                ),
-              ],
+              filled: true,
+              fillColor: Colors.grey.shade800,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(25),
+                borderSide: BorderSide.none,
+              ),
             ),
           ),
+        ),
+
+        // --- Search Results UI ---
+        Expanded(
+          child: Obx(() {
+            if (searchController.textController.text.isEmpty &&
+                searchController.searchResults.isEmpty) {
+              return const Center(
+                child: Text(
+                  "Search for any of your folders.",
+                  style: TextStyle(color: Colors.grey),
+                ),
+              );
+            }
+
+            if (searchController.searchResults.isEmpty) {
+              return Center(
+                child: Text(
+                  "No folders found for '${searchController.textController.text}'",
+                  style: const TextStyle(color: Colors.grey),
+                ),
+              );
+            }
+
+            return ListView.builder(
+              itemCount: searchController.searchResults.length,
+              itemBuilder: (context, index) {
+                final FolderModel folder =
+                    searchController.searchResults[index];
+                return ListTile(
+                  leading: const Icon(Icons.folder),
+                  title: Text(folder.name),
+                  subtitle:
+                      folder.parentId != null
+                          ? const Text("Subfolder")
+                          : const Text("Root Folder"),
+                  onTap: () {
+                    Get.to(
+                      () => SubFolderPage(),
+                      arguments: folder,
+                      preventDuplicates: false,
+                    );
+                  },
+                );
+              },
+            );
+          }),
         ),
       ],
     );

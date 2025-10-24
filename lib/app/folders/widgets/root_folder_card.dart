@@ -11,6 +11,87 @@ class RootFolderCard extends StatelessWidget {
 
   RootFolderCard({super.key, required this.folder});
 
+  // ✨ NEW: Helper function to show the options menu.
+  void _showFolderOptions(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      builder:
+          (context) => Wrap(
+            children: <Widget>[
+              ListTile(
+                leading: const Icon(Icons.edit),
+                title: const Text('Rename'),
+                onTap: () {
+                  Navigator.pop(context); 
+                  _showRenameDialog(context);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.delete, color: Colors.red),
+                title: const Text(
+                  'Delete',
+                  style: TextStyle(color: Colors.red),
+                ),
+                onTap: () {
+                  Navigator.pop(context); // Close the bottom sheet
+                  _showDeleteConfirmationDialog(context);
+                },
+              ),
+            ],
+          ),
+    );
+  }
+
+  // ✨ NEW: Helper function for the rename dialog.
+  void _showRenameDialog(BuildContext context) {
+    final TextEditingController nameController = TextEditingController(
+      text: folder.name,
+    );
+    Get.dialog(
+      AlertDialog(
+        title: const Text("Rename Folder"),
+        content: TextField(controller: nameController, autofocus: true),
+        actions: [
+          TextButton(onPressed: () => Get.back(), child: const Text("Cancel")),
+          TextButton(
+            onPressed: () {
+              if (nameController.text.trim().isNotEmpty) {
+                controller.updateFolderName(
+                  folder.id,
+                  nameController.text.trim(),
+                );
+              }
+              Get.back();
+            },
+            child: const Text("Rename"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ✨ NEW: Helper function for the delete confirmation dialog.
+  void _showDeleteConfirmationDialog(BuildContext context) {
+    Get.dialog(
+      AlertDialog(
+        title: const Text("Delete Folder?"),
+        content: Text(
+          "Are you sure you want to delete '${folder.name}' and all of its contents? This cannot be undone.",
+        ),
+        actions: [
+          TextButton(onPressed: () => Get.back(), child: const Text("Cancel")),
+          TextButton(
+            onPressed: () {
+              controller.deleteFolder(folder.id);
+              Get.back();
+            },
+            child: const Text("Delete", style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final List<String> allImagePaths = [];
@@ -42,6 +123,7 @@ class RootFolderCard extends StatelessWidget {
           preventDuplicates: false,
         );
       },
+      onLongPress: () => _showFolderOptions(context),
       child: Container(
         decoration: BoxDecoration(
           color: const Color.fromARGB(255, 60, 59, 59),
@@ -173,7 +255,7 @@ class RootFolderCard extends StatelessWidget {
       );
     }
 
-    // Default layout for four or more images
+    // Default layout for four or more image
     return GridView.builder(
       physics: const NeverScrollableScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(

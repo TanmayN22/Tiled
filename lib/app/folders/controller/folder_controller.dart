@@ -18,71 +18,87 @@ class FolderController extends GetxController {
     final box = Hive.box<FolderModel>('Folders');
     folders.value = box.values.toList();
     debugPrint("Loaded folders count: ${folders.length}");
-
-    // Debug: Print all folders with their parentIds
-    for (var folder in folders) {
-      debugPrint(
-        "Folder: ${folder.name}, ID: ${folder.id}, ParentID: ${folder.parentId}",
-      );
-    }
   }
 
   void createFolder(String name, {String? parentId}) {
     final id = const Uuid().v4();
-    final folder = FolderModel(
-      id: id,
-      name: name,
-      parentId: parentId,
-      childFolderIds: [],
-      mediaItems: [],
-    );
-
+    final folder = FolderModel(id: id, name: name, parentId: parentId);
     final box = Hive.box<FolderModel>('Folders');
     box.put(id, folder);
 
-    // Update parent folder's childFolderIds if this is a subfolder
     if (parentId != null) {
       final parentFolder = box.get(parentId);
       if (parentFolder != null) {
         parentFolder.childFolderIds.add(id);
         parentFolder.save();
-        debugPrint("Added child folder ID $id to parent ${parentFolder.name}");
+      }
+    }
+    loadFolders();
+  }
+
+  // --- NEW METHODS ---
+
+  /// **1. Updates the name of a specific folder.**
+  void updateFolderName(String folderId, String newName) {
+    final box = Hive.box<FolderModel>('Folders');
+    final folder = box.get(folderId);
+    if (folder != null) {
+      folder.name = newName;
+      folder.save(); // Save the changes to the database
+      loadFolders(); // Refresh the UI
+      Get.snackbar("Success", "Folder renamed to '$newName'");
+    }
+  }
+
+  /// **2. Removes a media item's reference from a folder.**
+  /// This does NOT delete the actual file from the device's storage.
+  void removeMediaFromFolder(String folderId, String mediaId) {
+    final box = Hive.box<FolderModel>('Folders');
+    final folder = box.get(folderId);
+    if (folder != null) {
+      folder.mediaItems.removeWhere((item) => item.id == mediaId);
+      folder.save();
+      loadFolders(); // Refresh to update thumbnails and content
+    }
+  }
+
+  /// **3. Deletes a folder and recursively deletes all of its subfolders.**
+  void deleteFolder(String folderId) {
+    final box = Hive.box<FolderModel>('Folders');
+    final folderToDelete = box.get(folderId);
+    if (folderToDelete == null) return;
+
+    // Step 1: Recursively delete all children first. This is important.
+    // We create a copy of the list to avoid errors while modifying it during iteration.
+    final childIds = List<String>.from(folderToDelete.childFolderIds);
+    for (String childId in childIds) {
+      deleteFolder(childId); // The recursive call
+    }
+
+    // Step 2: Remove this folder's ID from its parent's list of children.
+    if (folderToDelete.parentId != null) {
+      final parentFolder = box.get(folderToDelete.parentId!);
+      if (parentFolder != null) {
+        parentFolder.childFolderIds.remove(folderId);
+        parentFolder.save();
       }
     }
 
-    loadFolders(); // Reload folders list to refresh reactive state
-    debugPrint("Created folder: $name with parentId: $parentId");
+    // Step 3: Finally, delete the folder itself.
+    box.delete(folderId);
+    
+    // Refresh the UI once at the end after all operations are complete.
+    loadFolders();
   }
 
+  // --- Existing Methods ---
+  
   List<FolderModel> getSubfolders(String parentId) {
-    final subfolders =
-        folders
-            .where((f) => f.parentId != null && f.parentId == parentId)
-            .toList();
-
-    debugPrint("=== GETSUBFOLDERS DEBUG ===");
-    debugPrint("Looking for subfolders of parentId: $parentId");
-    debugPrint("Total folders available: ${folders.length}");
-    debugPrint("Found subfolders: ${subfolders.length}");
-
-    for (var subfolder in subfolders) {
-      debugPrint("  - Subfolder: ${subfolder.name} (ID: ${subfolder.id})");
-    }
-
-    return subfolders;
+    return folders.where((f) => f.parentId == parentId).toList();
   }
 
   List<FolderModel> getRootFolders() {
-    final rootFolders =
-        folders.where((f) => f.parentId == null || f.parentId == '').toList();
-
-    debugPrint("=== ROOT FOLDERS DEBUG ===");
-    debugPrint("Root folders found: ${rootFolders.length}");
-    for (var folder in rootFolders) {
-      debugPrint("  - Root folder: ${folder.name} (ID: ${folder.id})");
-    }
-
-    return rootFolders;
+    return folders.where((f) => f.parentId == null).toList();
   }
 
   void addMedia(String folderId, MediaItem media) {
@@ -92,41 +108,14 @@ class FolderController extends GetxController {
       folder.mediaItems.add(media);
       folder.save();
       loadFolders();
-      debugPrint("Added media to folder: ${folder.name}");
-    } else {
-      debugPrint("ERROR: Folder with ID $folderId not found when adding media");
     }
   }
 
-  // Helper method to get a specific folder by ID
   FolderModel? getFolderById(String folderId) {
     try {
       return folders.firstWhere((f) => f.id == folderId);
     } catch (e) {
-      debugPrint("Folder with ID $folderId not found: $e");
-      return null;
-    }
-  }
-
-  // Helper method to delete a folder
-  void deleteFolder(String folderId) {
-    final box = Hive.box<FolderModel>('Folders');
-    final folder = box.get(folderId);
-
-    if (folder != null) {
-      // Remove from parent's childFolderIds if it has a parent
-      if (folder.parentId != null) {
-        final parentFolder = box.get(folder.parentId!);
-        if (parentFolder != null) {
-          parentFolder.childFolderIds.remove(folderId);
-          parentFolder.save();
-        }
-      }
-
-      // Delete the folder
-      box.delete(folderId);
-      loadFolders();
-      debugPrint("Deleted folder: ${folder.name}");
+      return null; // Return null if not found
     }
   }
 }

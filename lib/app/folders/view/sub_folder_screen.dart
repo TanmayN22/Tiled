@@ -96,10 +96,10 @@ class SubFolderPage extends StatelessWidget {
               // Use the dedicated SubfolderCard widget with a unique key for performance.
               return SubfolderCard(key: ValueKey(item.id), subfolder: item);
             } else if (item is MediaItem) {
-              // Use the dedicated MediaCard widget with a unique key.
               return MediaCard(
                 key: ValueKey(item.id),
                 mediaItem: item,
+                folderId: currentFolder.id,
                 allMediaInFolder: mediaItems,
               );
             }

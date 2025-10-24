@@ -2,22 +2,52 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:photo_manager_image_provider/photo_manager_image_provider.dart';
+import 'package:tiled/app/folders/controller/folder_controller.dart';
 import 'package:tiled/app/home/view/full_media_screen.dart';
 import 'package:tiled/models/media_item.dart';
 
 class MediaCard extends StatelessWidget {
   final MediaItem mediaItem;
+  final String folderId;
   final List<MediaItem> allMediaInFolder;
+  final FolderController controller = Get.find();
 
-  const MediaCard({
+  MediaCard({
     super.key,
     required this.mediaItem,
     required this.allMediaInFolder,
+    required this.folderId,
   });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
+      onLongPress: () {
+        Get.dialog(
+          AlertDialog(
+            title: const Text("Remove from Folder?"),
+            content: const Text(
+              "This will not delete the file from your device.",
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Get.back(),
+                child: const Text("Cancel"),
+              ),
+              TextButton(
+                onPressed: () {
+                  controller.removeMediaFromFolder(folderId, mediaItem.id);
+                  Get.back();
+                },
+                child: const Text(
+                  "Remove",
+                  style: TextStyle(color: Colors.red),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
       onTap: () async {
         // ✨ 1. Show a loading dialog while we prepare the data.
         Get.dialog(
